@@ -9,8 +9,9 @@ Serve da riferimento per l'esame reale: leggilo prima di iniziare a scrivere cod
 
 1. **Database** ✓
 2. **Data Models (DAO)** ✓
-3. **Server: autenticazione (Passport.js + sessioni)**
-4. **Server: API routes (corsi + piano di studi)**
+3. **Server: GET routes + middleware base** ✓
+4. **Server: autenticazione (POST/DELETE sessioni)**
+5. **Server: PUT/DELETE study plan**
 5. **Client: routing React + layout base**
 6. **Client: lista corsi (pagina pubblica)**
 7. **Client: login/logout**
@@ -237,9 +238,83 @@ server/
   package.json
 ```
 
-## Step 3 — Autenticazione (TODO)
+## Step 3 — GET routes + middleware base
+
+### Middleware setup (index.mjs)
+
+Ordine obbligatorio — cambiarlo rompe l'autenticazione:
+
+1. `express.json()` — parsa body JSON
+2. `cors({ origin, credentials: true })` — abilita cross-origin con cookie
+3. `session({ secret, resave: false, saveUninitialized: false })` — sessioni
+4. `passport.initialize()` + `passport.session()` — Passport legge la sessione
+
+**Perché il Passport setup sta in index.mjs anche se le POST non ci sono ancora?**
+`passport.session()` viene eseguito su *ogni* richiesta per deserializzare l'utente dalla sessione. Senza di esso, `req.user` è undefined anche sulle GET protette. Va configurato prima delle route.
+
+---
+
+### Passport LocalStrategy
+
+```javascript
+passport.use(new LocalStrategy({ usernameField: 'email' }, (email, password, done) => {
+  const user = getUser(email, password);  // dao-users.mjs
+  if (!user) return done(null, false, { message: 'Invalid credentials.' });
+  return done(null, user);
+}));
+```
+`usernameField: 'email'` — override del default `'username'` per matchare il nostro schema.
+
+```javascript
+passport.serializeUser((user, done) => done(null, user.userId));
+passport.deserializeUser((id, done) => {
+  const user = getUserById(id);  // dao-users.mjs
+  if (!user) return done(null, false);
+  return done(null, user);
+});
+```
+`serializeUser` salva solo `userId` nel cookie. `deserializeUser` ricarica l'utente dal DB ad ogni richiesta — così `req.user` è sempre aggiornato (incluso `planType` dopo save/delete).
+
+---
+
+### isLoggedIn middleware
+
+```javascript
+const isLoggedIn = (req, res, next) => {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ error: 'Not authenticated' });
+};
+```
+Riusabile su qualsiasi route protetta: `app.get('/api/something', isLoggedIn, handler)`.
+
+---
+
+### GET /api/sessions/current
+
+Non usa `isLoggedIn` — deve rispondere 401 senza bloccare, non redirigere. Il client lo chiama all'avvio per sapere se esiste una sessione attiva.
+
+### GET /api/courses
+
+Pubblica. Nessun middleware di autenticazione. Chiama `getCourses()` che restituisce già `enrolledCount` e `incompatibilities[]`.
+
+### GET /api/studyplan
+
+Protetta con `isLoggedIn`. Controlla `req.user.planType` — se NULL restituisce 404 (nessun piano). Altrimenti chiama `getStudyPlan(req.user.userId)` e restituisce `{ type, courses[] }`.
+
+**Perché `planType` viene da `req.user` e non dal DB?**
+`deserializeUser` ricarica l'utente dal DB ad ogni richiesta, quindi `req.user.planType` è già aggiornato — evita una query extra.
+
+---
+
+## Step 4 — POST/DELETE sessioni + PUT/DELETE study plan (TODO)
 
 _(verrà documentato nel passo successivo)_
+
+---
+
+## Regola fondamentale
+
+**Implementare SOLO quello che la traccia richiede esplicitamente.** Nessuna feature extra, nessuna astrazione non richiesta, nessun "miglioramento" non specificato. Se la traccia non lo dice, non si fa. L'esame valuta correttezza e aderenza ai requisiti, non creatività.
 
 ---
 
