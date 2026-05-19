@@ -7,10 +7,10 @@ Serve da riferimento per l'esame reale: leggilo prima di iniziare a scrivere cod
 
 ## Ordine di implementazione consigliato
 
-1. **Database** ← siamo qui
-2. **Server: autenticazione (Passport.js + sessioni)**
-3. **Server: API corsi (GET pubblico)**
-4. **Server: API piano di studi (GET/POST/DELETE, protette)**
+1. **Database** ✓
+2. **Data Models (DAO)** ✓
+3. **Server: autenticazione (Passport.js + sessioni)**
+4. **Server: API routes (corsi + piano di studi)**
 5. **Client: routing React + layout base**
 6. **Client: lista corsi (pagina pubblica)**
 7. **Client: login/logout**
@@ -175,7 +175,69 @@ const valid = crypto.timingSafeEqual(Buffer.from(storedHash, 'hex'), Buffer.from
 
 ---
 
-## Step 2 — Autenticazione (TODO)
+## Step 2 — Data Models (DAO)
+
+Due file DAO separati per responsabilità: `dao-users.mjs` gestisce autenticazione, `dao-courses.mjs` gestisce corsi e piano di studi.
+
+### dao-users.mjs
+
+```javascript
+getUser(email, password)   // verifica credenziali → user object o false
+getUserById(id)            // ricostruisce user da sessione (usato da Passport)
+```
+
+**Pattern verifica password:**
+```javascript
+const hash = crypto.scryptSync(password, user.salt, 32).toString('hex');
+crypto.timingSafeEqual(Buffer.from(user.hashedPassword, 'hex'), Buffer.from(hash, 'hex'));
+```
+`timingSafeEqual` obbligatorio — evita timing attacks.
+
+**Cosa NON restituire mai:** `hashedPassword`, `salt`. Filtrati prima di restituire l'oggetto utente.
+
+---
+
+### dao-courses.mjs
+
+```javascript
+getCourses()                                    // tutti i corsi con enrolledCount + incompatibilities[]
+getStudyPlan(userId)                            // corsi nel piano dell'utente
+saveStudyPlan(userId, planType, courseCodes)    // atomic: cancella vecchio + inserisce nuovo + aggiorna planType
+deleteStudyPlan(userId)                         // cancella corsi + setta planType = NULL
+```
+
+**Perché `saveStudyPlan` e `deleteStudyPlan` usano `db.transaction()`?**
+Devono modificare due tabelle (`study_plan_courses` e `users.planType`) in modo atomico. Se una delle operazioni fallisce, entrambe vengono annullate. Con `better-sqlite3`, `db.transaction(fn)` restituisce una funzione wrappata — si chiama direttamente: `saveStudyPlan(userId, type, codes)`.
+
+**Perché `planType` viene aggiornato in `dao-courses` e non in `dao-users`?**
+`planType` è sempre modificato in coppia con `study_plan_courses` — separarli in due DAO richiederebbe chiamate multiple non atomiche. Accoppiare l'update in `dao-courses` mantiene l'atomicità e la coerenza.
+
+**`enrolledCount` calcolato con LEFT JOIN + COUNT:**
+```sql
+SELECT c.*, COUNT(spc.userId) AS enrolledCount
+FROM courses c
+LEFT JOIN study_plan_courses spc ON spc.courseCode = c.courseCode
+GROUP BY c.courseCode
+ORDER BY c.name
+```
+`LEFT JOIN` necessario: corsi senza iscritti devono apparire con `enrolledCount = 0`, non essere esclusi.
+
+---
+
+### Struttura file aggiornata
+
+```
+server/
+  db.mjs              ← connessione SQLite
+  dao-users.mjs       ← autenticazione utenti
+  dao-courses.mjs     ← corsi + piano di studi
+  init_db.mjs         ← script inizializzazione DB
+  index.mjs           ← entry point Express
+  studyplan.db
+  package.json
+```
+
+## Step 3 — Autenticazione (TODO)
 
 _(verrà documentato nel passo successivo)_
 

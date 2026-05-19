@@ -9,23 +9,30 @@
 
 ## API Server
 
-- POST `/api/something`
-  - request parameters and request body content
-  - response body content
-- GET `/api/something`
-  - request parameters
-  - response body content
-- POST `/api/something`
-  - request parameters and request body content
-  - response body content
-- ...
+### Authentication
+- `POST /api/sessions` — login; body: `{ email, password }`; response: user object `{ userId, name, surname, email, planType }`
+- `DELETE /api/sessions/current` — logout; no body; response: empty
+- `GET /api/sessions/current` — check session; response: user object or 401
+
+### Courses
+- `GET /api/courses` — list all courses in alphabetical order; response: array of `{ courseCode, name, credits, maxStudents, enrolledCount, preparatoryCourse, incompatibilities[] }`
+
+### Study Plan
+- `GET /api/studyplan` — get logged-in user's study plan; response: `{ type, courses[] }` or 404 if no plan
+- `PUT /api/studyplan` — create or replace study plan; body: `{ type, courseCodes[] }`; validates credits and constraints; response: updated plan or 422 with error
+- `DELETE /api/studyplan` — delete entire study plan; response: empty
+
+## Data Models
+
+- `dao-users.mjs`: `getUser(email, password)` — verifies credentials, returns user or false; `getUserById(id)` — re-hydrates user from session
+- `dao-courses.mjs`: `getCourses()` — all courses with enrolledCount and incompatibilities; `getStudyPlan(userId)` — user's plan courses; `saveStudyPlan(userId, planType, courseCodes)` — atomic replace; `deleteStudyPlan(userId)` — delete plan and reset planType
 
 ## Database Tables
 
 - Table `users` - contains user credentials: userId (PK), name, surname, email, hashedPassword, salt, planType ('full-time' or 'part-time')
 - Table `courses` - contains course data: courseCode (PK), name, credits, optional maxStudents, optional preparatoryCourse (FK to it-self)
 - Table `incompatibilities` - contains mutually exclusive course pairs: (courseCode1, courseCode2) (composite PK, FK to courses)
-- Table `study_plan_courses` - pivot table linking students to their chosen courses: (userId (FK to users), courseCode (FK to courses)) composite PK
+- Table `study_plan_courses` - pivot table linking students to their chosen courses: (userId (FK to users), courseCode (FK to courses)) (composite PK)
 
 ## Main React Components
 
