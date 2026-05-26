@@ -1,6 +1,30 @@
 # Exam #N: "Exam Title"
 ## Student: s123456 LASTNAME FIRSTNAME 
 
+## How to Run
+
+**First time only** — initialize the database:
+```bash
+cd server
+node init_db.js
+```
+
+**Start the server:**
+```bash
+cd server
+nodemon index.js
+```
+
+**Start the client** (separate terminal):
+```bash
+cd client
+npm run dev
+```
+
+App available at `http://localhost:5173`. Server runs on `http://localhost:3001`.
+
+---
+
 ## React Client Application Routes
 
 - Route `/`: page content and purpose

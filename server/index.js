@@ -5,7 +5,7 @@ import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 
 import { getUser, getUserById } from './dao-users.js';
-import { getCourses, getStudyPlan } from './dao-courses.js';
+import { getCourses, getStudyPlan, saveStudyPlan, deleteStudyPlan } from './dao-courses.js';
 
 const app = express();
 const port = 3001;
@@ -102,6 +102,122 @@ app.get('/api/studyplan', isLoggedIn, (req, res) => {
     }
     const courses = getStudyPlan(req.user.userId);
     res.json({ type: req.user.planType, courses });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/sessions  (login)
+// passport.authenticate handles credential check via LocalStrategy.
+// On success: returns user object. On failure: 401.
+// ---------------------------------------------------------------------------
+
+app.post('/api/sessions', (req, res, next) => {
+  passport.authenticate('local', (err, user, info) => {
+    if (err) return next(err);
+    if (!user) return res.status(401).json({ error: info?.message || 'Invalid credentials' });
+    req.login(user, (err) => {
+      if (err) return next(err);
+      res.json(req.user);
+    });
+  })(req, res, next);
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/sessions/current  (logout)
+// req.logout() in Passport 0.6+ requires a callback.
+// ---------------------------------------------------------------------------
+
+app.delete('/api/sessions/current', isLoggedIn, (req, res, next) => {
+  req.logout((err) => {
+    if (err) return next(err);
+    res.status(200).json({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/studyplan  (protected)
+// Creates or replaces the study plan. Validates:
+//   1. type is 'full-time' or 'part-time'
+//   2. all courseCodes exist
+//   3. total credits within range (full-time: 60-80, part-time: 20-40)
+//   4. no two incompatible courses
+//   5. preparatory course present when required
+//   6. max enrollment not exceeded (only for courses new to the user's plan)
+// ---------------------------------------------------------------------------
+
+app.put('/api/studyplan', isLoggedIn, (req, res) => {
+  const { type, courseCodes } = req.body;
+
+  // --- basic input validation ---
+  if (!type || !['full-time', 'part-time'].includes(type))
+    return res.status(422).json({ error: 'Invalid plan type' });
+  if (!Array.isArray(courseCodes))
+    return res.status(422).json({ error: 'courseCodes must be an array' });
+
+  // --- load all courses (with enrolledCount and incompatibilities) ---
+  const allCourses = getCourses();
+  const courseMap = Object.fromEntries(allCourses.map(c => [c.courseCode, c]));
+
+  // --- all codes must exist ---
+  for (const code of courseCodes) {
+    if (!courseMap[code])
+      return res.status(422).json({ error: `Course ${code} not found` });
+  }
+
+  const selected = courseCodes.map(code => courseMap[code]);
+  const codeSet = new Set(courseCodes);
+
+  // --- credits range ---
+  const totalCredits = selected.reduce((sum, c) => sum + c.credits, 0);
+  const [min, max] = type === 'full-time' ? [60, 80] : [20, 40];
+  if (totalCredits < min || totalCredits > max)
+    return res.status(422).json({ error: `Total credits (${totalCredits}) must be between ${min} and ${max}` });
+
+  // --- incompatibilities ---
+  for (const course of selected) {
+    for (const incompat of course.incompatibilities) {
+      if (codeSet.has(incompat))
+        return res.status(422).json({ error: `${course.courseCode} is incompatible with ${incompat}` });
+    }
+  }
+
+  // --- preparatory courses ---
+  for (const course of selected) {
+    if (course.preparatoryCourse && !codeSet.has(course.preparatoryCourse))
+      return res.status(422).json({ error: `${course.courseCode} requires ${course.preparatoryCourse} as preparatory course` });
+  }
+
+  // --- max enrollment (skip check for courses already in user's current plan) ---
+  const currentPlan = getStudyPlan(req.user.userId);
+  const currentCodes = new Set(currentPlan.map(c => c.courseCode));
+
+  for (const course of selected) {
+    const isNew = !currentCodes.has(course.courseCode);
+    if (isNew && course.maxStudents !== null && course.enrolledCount >= course.maxStudents)
+      return res.status(422).json({ error: `${course.courseCode} has reached maximum enrollment` });
+  }
+
+  // --- persist ---
+  try {
+    saveStudyPlan(req.user.userId, type, courseCodes);
+    const updatedCourses = getStudyPlan(req.user.userId);
+    res.json({ type, courses: updatedCourses });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/studyplan  (protected)
+// Removes all plan courses and resets planType to NULL.
+// ---------------------------------------------------------------------------
+
+app.delete('/api/studyplan', isLoggedIn, (req, res) => {
+  try {
+    deleteStudyPlan(req.user.userId);
+    res.status(200).json({});
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

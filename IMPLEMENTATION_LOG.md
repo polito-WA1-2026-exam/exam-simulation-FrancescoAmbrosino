@@ -10,8 +10,11 @@ Serve da riferimento per l'esame reale: leggilo prima di iniziare a scrivere cod
 1. **Database** ✓
 2. **Data Models (DAO)** ✓
 3. **Server: GET routes + middleware base** ✓
-4. **Server: autenticazione (POST/DELETE sessioni)**
-5. **Server: PUT/DELETE study plan**
+4. **Server: POST/DELETE sessioni + PUT/DELETE study plan** ✓
+5. **Client: routing React + layout base**
+6. **Client: lista corsi (pagina pubblica)**
+7. **Client: login/logout**
+8. **Client: piano di studi (visualizzazione + editing)**
 5. **Client: routing React + layout base**
 6. **Client: lista corsi (pagina pubblica)**
 7. **Client: login/logout**
@@ -306,7 +309,72 @@ Protetta con `isLoggedIn`. Controlla `req.user.planType` — se NULL restituisce
 
 ---
 
-## Step 4 — POST/DELETE sessioni + PUT/DELETE study plan (TODO)
+## Step 4 — POST/DELETE sessioni + PUT/DELETE study plan
+
+### POST /api/sessions (login)
+
+```javascript
+app.post('/api/sessions', (req, res, next) => {
+  passport.authenticate('local', (err, user, info) => {
+    if (err) return next(err);
+    if (!user) return res.status(401).json({ error: info?.message || 'Invalid credentials' });
+    req.login(user, (err) => {
+      if (err) return next(err);
+      res.json(req.user);  // req.user aggiornato da deserializeUser
+    });
+  })(req, res, next);
+});
+```
+
+**Perché `passport.authenticate` come callback e non come middleware diretto?**
+La forma `app.post('/api/sessions', passport.authenticate('local'))` non permette di personalizzare la risposta in caso di errore. La forma callback consente di restituire JSON invece di redirect (comportamento default di Passport).
+
+**Perché `res.json(req.user)` e non `res.json(user)`?**
+`req.login()` chiama `deserializeUser` che ricarica l'utente dal DB. `req.user` riflette sempre lo stato DB aggiornato.
+
+---
+
+### DELETE /api/sessions/current (logout)
+
+```javascript
+app.delete('/api/sessions/current', isLoggedIn, (req, res, next) => {
+  req.logout((err) => {
+    if (err) return next(err);
+    res.status(200).json({});
+  });
+});
+```
+
+**Passport 0.6+ richiede callback su `req.logout()`** — senza callback, l'operazione è fire-and-forget e gli errori vengono ignorati.
+
+---
+
+### PUT /api/studyplan (crea o rimpiazza piano)
+
+Validazioni eseguite in ordine prima di persistere:
+
+1. `type` deve essere `'full-time'` o `'part-time'`
+2. `courseCodes` deve essere un array
+3. Tutti i codici devono esistere nel DB
+4. Totale crediti nel range: full-time 60-80, part-time 20-40
+5. Nessuna coppia incompatibile nel piano
+6. Ogni corso con `preparatoryCourse` deve avere il prerequisito nel piano
+7. Corsi con `maxStudents`: controllato solo per corsi **nuovi** rispetto al piano corrente — chi aveva gia il corso nel piano puo mantenerlo anche se ora e a capienza massima
+
+**Perché validare server-side anche se il client lo fa gia?**
+Il client puo essere bypassato. La validazione server e l'unica autoritativa.
+
+**Operazione atomica**: `saveStudyPlan` usa `db.transaction()` — se un insert fallisce, nessuna modifica viene applicata.
+
+---
+
+### DELETE /api/studyplan
+
+Chiama `deleteStudyPlan(userId)` — rimuove righe da `study_plan_courses` e setta `planType = NULL` in `users`, tutto in una transazione.
+
+---
+
+## Step 5 — Client React (TODO)
 
 _(verrà documentato nel passo successivo)_
 
