@@ -349,7 +349,19 @@ app.delete('/api/sessions/current', isLoggedIn, (req, res, next) => {
 
 ---
 
-### PUT /api/studyplan (crea o rimpiazza piano)
+### POST /api/studyplan (crea piano vuoto)
+
+Body: `{ type }`. Risponde 409 se piano esiste gia. Chiama `createStudyPlan(userId, type)` che setta solo `planType` in `users` — nessun corso inserito.
+
+**Separazione POST/PUT:**
+- `POST` = prima creazione, solo tipo, nessuna validazione crediti (piano vuoto)
+- `PUT` = salvataggio con corsi, valida crediti e tutti i constraints
+
+Senza POST separata, il client dovrebbe mandare una PUT con array vuoto alla creazione — ma la PUT valida i crediti e fallirebbe (0 crediti fuori range). La POST bypassa quella validazione in modo esplicito e corretto.
+
+---
+
+### PUT /api/studyplan (salva piano con corsi)
 
 Validazioni eseguite in ordine prima di persistere:
 

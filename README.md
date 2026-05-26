@@ -55,9 +55,15 @@ App available at `http://localhost:5173`. Server runs on `http://localhost:3001`
 - `GET /api/studyplan`
   - Response: `{ type, courses[] }` or 404 if no plan exists
 
+- `POST /api/studyplan`
+  - Creates empty plan for the first time
+  - Body: `{ type }`
+  - Response: `{ type, courses: [] }` or 409 if plan already exists
+
 - `PUT /api/studyplan`
+  - Saves (replaces) the study plan with courses
   - Body: `{ type, courseCodes[] }`
-  - Validates credit range and constraints
+  - Validates credit range and all constraints
   - Response: `{ type, courses[] }` or 422 with error message
 
 - `DELETE /api/studyplan`
@@ -72,6 +78,7 @@ App available at `http://localhost:5173`. Server runs on `http://localhost:3001`
 - `dao-courses.js`
   - `getCourses()`: all courses with enrolledCount and incompatibilities array
   - `getStudyPlan(userId)`: courses in the user's plan
+  - `createStudyPlan(userId, type)`: sets planType, no courses (first-time creation)
   - `saveStudyPlan(userId, planType, courseCodes)`: atomic replace of plan
   - `deleteStudyPlan(userId)`: deletes plan and resets planType to null
 
@@ -84,11 +91,37 @@ App available at `http://localhost:5173`. Server runs on `http://localhost:3001`
 
 ## Main React Components
 
-- `ListOfSomething` (in `List.js`): component purpose and main functionality
-- `GreatButton` (in `GreatButton.js`): component purpose and main functionality
-- ...
+- `App` (in `App.jsx`)
+  - Root component, handles routing
+  - Holds global state: logged-in user, full course list, study plan
+  - Fetches courses on mount, study plan on login
 
-(only _main_ components, minor ones may be skipped)
+- `Navbar` (in `components/Navbar.jsx`)
+  - Top navigation bar
+  - Shows login button when anonymous, user name and logout button when authenticated
+
+- `LoginForm` (in `components/LoginForm.jsx`)
+  - Email and password form
+  - Calls POST /api/sessions, redirects to `/` on success
+
+- `CourseList` (in `components/CourseList.jsx`)
+  - Renders full course list in alphabetical order
+  - Passes edit-mode context down to each row
+
+- `CourseRow` (in `components/CourseRow.jsx`)
+  - Single expandable course row
+  - Expanded view shows incompatible courses and preparatory course
+  - In edit mode: shows add button, or reason why course cannot be added
+
+- `StudyPlan` (in `components/StudyPlan.jsx`)
+  - Study plan panel shown when logged in
+  - Type selector (full-time / part-time) when creating a new plan
+  - Credit counter with min/max range
+  - Save, Cancel and Delete buttons
+
+- `StudyPlanRow` (in `components/StudyPlanRow.jsx`)
+  - Single course row inside the study plan
+  - Remove button with reason message if removal is blocked by a preparatory constraint
 
 ## Screenshot
 
