@@ -11,14 +11,8 @@ Serve da riferimento per l'esame reale: leggilo prima di iniziare a scrivere cod
 2. **Data Models (DAO)** ✓
 3. **Server: GET routes + middleware base** ✓
 4. **Server: POST/DELETE sessioni + PUT/DELETE study plan** ✓
-5. **Client: routing React + layout base**
-6. **Client: lista corsi (pagina pubblica)**
-7. **Client: login/logout**
-8. **Client: piano di studi (visualizzazione + editing)**
-5. **Client: routing React + layout base**
-6. **Client: lista corsi (pagina pubblica)**
-7. **Client: login/logout**
-8. **Client: piano di studi (visualizzazione + editing)**
+5. **Client: componenti React** ✓
+6. **README: routes + credenziali + cleanup**
 
 ---
 
@@ -386,7 +380,122 @@ Chiama `deleteStudyPlan(userId)` — rimuove righe da `study_plan_courses` e set
 
 ---
 
-## Step 5 — Client React (TODO)
+## Step 5 — Client React
+
+### Dipendenze aggiunte
+
+- `react-router-dom`: routing SPA lato client
+- `bootstrap`: CSS importato in `main.jsx` — necessario perché react-bootstrap non include il CSS
+- `react-bootstrap`: componenti React pre-stilati (Container, Row, Col, Table, Button, Badge, Form, Alert, ListGroup, Navbar)
+
+### API.js
+
+Centralizza tutte le chiamate fetch. Pattern uniforme:
+
+```javascript
+async function handleResponse(res) {
+  if (res.ok) {
+    const text = await res.text();
+    return text.length ? JSON.parse(text) : {};
+  }
+  const err = await res.json().catch(() => ({ error: 'Server error' }));
+  throw err;
+}
+```
+
+`credentials: 'include'` obbligatorio su ogni chiamata — il cookie di sessione non viene inviato altrimenti in modalità cross-origin.
+
+`res.text()` invece di `res.json()` direttamente perché alcune risposte sono vuote (DELETE restituisce `{}`). `res.json()` su body vuoto lancerebbe un errore.
+
+---
+
+### main.jsx
+
+Aggiunto `<BrowserRouter>` wrapper e import di `bootstrap/dist/css/bootstrap.min.css`. StrictMode già presente dal template Vite.
+
+---
+
+### App.jsx — Stato globale
+
+| Stato | Tipo | Scopo |
+|---|---|---|
+| `user` | oggetto o null | utente loggato |
+| `courses` | array | lista corsi completa (sempre caricata) |
+| `savedPlan` | oggetto o null | piano persistito nel DB |
+| `localPlan` | oggetto o null | copia locale durante editing |
+| `isEditing` | boolean | modalità editing attiva |
+| `saveError` | stringa o null | errore dal server su PUT |
+
+**Due useEffect separati**: uno per i corsi (pubblico, sempre), uno per la sessione. Non unirli — dipendenze e lifecycle diverse.
+
+**handleCreatePlan**: chiama `POST /api/studyplan` per creare il piano nel DB (solo tipo, nessun corso), poi imposta `savedPlan`, aggiorna `user.planType`, setta `localPlan` e `isEditing = true`. Non usare direttamente `setIsEditing(true)` senza la POST — il piano deve esistere nel DB prima di iniziare l'editing.
+
+**handleDelete** distingue due casi:
+- `user.planType` non null: piano nel DB → chiama `API.deleteStudyPlan()`
+- `user.planType` null: piano solo locale (mai salvato) → reset state, nessuna API call
+
+**Refresh enrolledCount**: dopo ogni `saveStudyPlan` e `deleteStudyPlan`, `API.getCourses()` viene richiamata. I conteggi nel DB cambiano — il client deve aggiornarli.
+
+**activePlanCourses**: prop passata a CourseList. Durante editing usa `localPlan.courses`, altrimenti `savedPlan.courses`. CourseList usa questa lista per calcolare se un corso può essere aggiunto.
+
+---
+
+### Navbar.jsx
+
+Componente separato per la barra di navigazione. Mostra nome utente + logout quando autenticato, pulsante login quando anonimo.
+
+**Alias obbligatorio**: `import { Navbar as BSNavbar } from 'react-bootstrap'` — il componente si chiama `Navbar`, stessa parola. Senza alias, c'è conflitto tra l'import e il nome della funzione componente.
+
+---
+
+### LoginForm.jsx
+
+`e.preventDefault()` obbligatorio per evitare il reload della pagina su submit.
+`onLogin(user)` chiamato dopo login riuscito → App aggiorna stato e `navigate('/')`.
+
+---
+
+### CourseList.jsx
+
+**`getAddStatus(course, planCourses)`**: funzione pura (non componente) che calcola se un corso può essere aggiunto. Controlla in ordine:
+1. Già nel piano
+2. Incompatibile con corso nel piano
+3. Prerequisito mancante
+4. Capienza massima raggiunta
+
+**Expand/collapse**: stato locale `expanded` (Set di courseCode). Più corsi possono essere espansi contemporaneamente — la spec lo richiede esplicitamente. `setExpanded` crea sempre un nuovo Set per rispettare l'immutabilità React.
+
+**`Fragment` con key**: necessario quando `map()` restituisce più elementi (`<tr>` principale + `<tr>` dettagli). Senza Fragment, React non può assegnare la key corretta.
+
+---
+
+### StudyPlan.jsx
+
+**`getRemoveStatus(courseCode, planCourses)`**: verifica se rimuovere un corso viola un vincolo prerequisito — cerca se qualche altro corso nel piano ha questo come `preparatoryCourse`.
+
+**`newPlanType`**: unico stato locale del componente, usato solo nella form di creazione. Non ha senso tenerlo in App perché è transitorio e specifico di questo componente.
+
+**Crediti**: calcolati live su `plan.courses`. Badge verde se nel range, giallo altrimenti — feedback visivo immediato senza chiamata API.
+
+**`saveError`**: viene dalla PUT in App.jsx, passa come prop. Mostrato in-place nel pannello piano.
+
+---
+
+### Struttura file client
+
+```
+client/src/
+  API.js                       ← tutte le chiamate fetch
+  App.jsx                      ← stato globale, routing, handlers
+  main.jsx                     ← BrowserRouter, StrictMode, Bootstrap CSS
+  components/
+    Navbar.jsx
+    LoginForm.jsx
+    CourseList.jsx
+    StudyPlan.jsx
+```
+
+## Step 6 — Routes React nel README (TODO)
 
 _(verrà documentato nel passo successivo)_
 
@@ -397,6 +506,8 @@ _(verrà documentato nel passo successivo)_
 **1. Implementare SOLO quello che la traccia richiede esplicitamente.** Nessuna feature extra, nessuna astrazione non richiesta, nessun "miglioramento" non specificato. Se la traccia non lo dice, non si fa. L'esame valuta correttezza e aderenza ai requisiti, non creatività.
 
 **2. Usare esclusivamente estensione `.js`.** Con `"type": "module"` in `package.json`, i file `.js` sono già trattati come ESM — `.mjs` non serve. Tutti i file server usano `.js`, tutti gli import usano `'./nome.js'`. Il comando di avvio è `nodemon index.js`.
+
+**3. Usare react-bootstrap per i componenti UI.** Importare i componenti da `'react-bootstrap'` (Button, Form, Table, ecc.) e il CSS da `'bootstrap/dist/css/bootstrap.min.css'` in `main.jsx`. Il CSS di Bootstrap è necessario: react-bootstrap non lo include autonomamente.
 
 ---
 

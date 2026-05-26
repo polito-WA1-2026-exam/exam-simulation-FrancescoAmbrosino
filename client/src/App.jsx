@@ -1,122 +1,176 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { Container, Row, Col } from 'react-bootstrap';
+import * as API from './API.js';
+import Navbar from './components/Navbar.jsx';
+import LoginForm from './components/LoginForm.jsx';
+import CourseList from './components/CourseList.jsx';
+import StudyPlan from './components/StudyPlan.jsx';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [user, setUser]           = useState(null);   // logged-in user or null
+  const [courses, setCourses]     = useState([]);      // full course list (always loaded)
+  const [savedPlan, setSavedPlan] = useState(null);    // plan persisted in DB
+  const [localPlan, setLocalPlan] = useState(null);    // working copy during editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+
+  const navigate = useNavigate();
+
+  // Fetch all courses on mount (public — always available, no auth needed).
+  useEffect(() => {
+    API.getCourses()
+      .then(setCourses)
+      .catch(err => console.error('Failed to load courses:', err));
+  }, []);
+
+  // Restore session on mount. If logged in and has a plan, load it.
+  useEffect(() => {
+    API.getCurrentUser()
+      .then(u => {
+        setUser(u);
+        if (u.planType) {
+          API.getStudyPlan().then(setSavedPlan).catch(() => setSavedPlan(null));
+        }
+      })
+      .catch(() => setUser(null));
+  }, []);
+
+  // Called after successful login (from LoginForm).
+  const handleLogin = (u) => {
+    setUser(u);
+    if (u.planType) {
+      API.getStudyPlan().then(setSavedPlan).catch(() => setSavedPlan(null));
+    }
+    navigate('/');
+  };
+
+  const handleLogout = () => {
+    API.logout().then(() => {
+      setUser(null);
+      setSavedPlan(null);
+      setLocalPlan(null);
+      setIsEditing(false);
+      setSaveError(null);
+    });
+  };
+
+  // POST: creates the plan in DB, then starts editing the empty plan.
+  const handleCreatePlan = (type) => {
+    API.createStudyPlan(type)
+      .then(result => {
+        setUser(u => ({ ...u, planType: result.type }));
+        setSavedPlan(result);           // { type, courses: [] } now in DB
+        setLocalPlan({ type, courses: [] });
+        setIsEditing(true);
+      })
+      .catch(err => console.error('Failed to create plan:', err));
+  };
+
+  // User clicks "Edit" on an existing saved plan.
+  const handleStartEdit = () => {
+    setLocalPlan({ ...savedPlan, courses: [...savedPlan.courses] });
+    setIsEditing(true);
+    setSaveError(null);
+  };
+
+  const handleAddCourse = (course) => {
+    setLocalPlan(p => ({ ...p, courses: [...p.courses, course] }));
+  };
+
+  const handleRemoveCourse = (courseCode) => {
+    setLocalPlan(p => ({
+      ...p,
+      courses: p.courses.filter(c => c.courseCode !== courseCode),
+    }));
+  };
+
+  // PUT: validates and persists the local plan.
+  const handleSave = () => {
+    setSaveError(null);
+    API.saveStudyPlan(localPlan.type, localPlan.courses.map(c => c.courseCode))
+      .then(result => {
+        setSavedPlan(result);
+        setUser(u => ({ ...u, planType: result.type }));
+        setLocalPlan(null);
+        setIsEditing(false);
+        API.getCourses().then(setCourses); // refresh enrolledCount
+      })
+      .catch(err => setSaveError(err.error || 'Save failed'));
+  };
+
+  // Discard local changes; go back to showing saved plan (or create form if none).
+  const handleCancel = () => {
+    setLocalPlan(null);
+    setIsEditing(false);
+    setSaveError(null);
+  };
+
+  // DELETE: plan in DB → API call. Plan only local (never saved) → just reset state.
+  const handleDelete = () => {
+    if (user.planType) {
+      API.deleteStudyPlan().then(() => {
+        setSavedPlan(null);
+        setLocalPlan(null);
+        setIsEditing(false);
+        setSaveError(null);
+        setUser(u => ({ ...u, planType: null }));
+        API.getCourses().then(setCourses); // refresh enrolledCount
+      });
+    } else {
+      setLocalPlan(null);
+      setIsEditing(false);
+      setSaveError(null);
+    }
+  };
+
+  // Courses to check constraints against in CourseList.
+  const activePlanCourses = isEditing
+    ? (localPlan?.courses ?? [])
+    : (savedPlan?.courses ?? []);
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      <Navbar user={user} onLogout={handleLogout} />
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      <Container>
+        <Routes>
+          <Route path="/login" element={
+            user ? <Navigate to="/" /> : <LoginForm onLogin={handleLogin} />
+          } />
+          <Route path="/" element={
+            <Row className="g-4">
+              <Col md={user ? 7 : 12}>
+                <CourseList
+                  courses={courses}
+                  planCourses={activePlanCourses}
+                  isEditing={isEditing}
+                  onAdd={handleAddCourse}
+                />
+              </Col>
+              {user && (
+                <Col md={5}>
+                  <StudyPlan
+                    user={user}
+                    savedPlan={savedPlan}
+                    localPlan={localPlan}
+                    isEditing={isEditing}
+                    saveError={saveError}
+                    onCreatePlan={handleCreatePlan}
+                    onStartEdit={handleStartEdit}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                    onDelete={handleDelete}
+                    onRemoveCourse={handleRemoveCourse}
+                  />
+                </Col>
+              )}
+            </Row>
+          } />
+        </Routes>
+      </Container>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

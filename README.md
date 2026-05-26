@@ -91,37 +91,21 @@ App available at `http://localhost:5173`. Server runs on `http://localhost:3001`
 
 ## Main React Components
 
-- `App` (in `App.jsx`)
-  - Root component, handles routing
-  - Holds global state: logged-in user, full course list, study plan
-  - Fetches courses on mount, study plan on login
-
-- `Navbar` (in `components/Navbar.jsx`)
-  - Top navigation bar
-  - Shows login button when anonymous, user name and logout button when authenticated
-
 - `LoginForm` (in `components/LoginForm.jsx`)
   - Email and password form
   - Calls POST /api/sessions, redirects to `/` on success
 
 - `CourseList` (in `components/CourseList.jsx`)
   - Renders full course list in alphabetical order
-  - Passes edit-mode context down to each row
-
-- `CourseRow` (in `components/CourseRow.jsx`)
-  - Single expandable course row
-  - Expanded view shows incompatible courses and preparatory course
-  - In edit mode: shows add button, or reason why course cannot be added
+  - Each row is expandable to show incompatibilities and preparatory course
+  - In edit mode: shows add button per course, or reason why it cannot be added
 
 - `StudyPlan` (in `components/StudyPlan.jsx`)
   - Study plan panel shown when logged in
   - Type selector (full-time / part-time) when creating a new plan
   - Credit counter with min/max range
   - Save, Cancel and Delete buttons
-
-- `StudyPlanRow` (in `components/StudyPlanRow.jsx`)
-  - Single course row inside the study plan
-  - Remove button with reason message if removal is blocked by a preparatory constraint
+  - Each row shows remove button with reason if removal is blocked
 
 ## Screenshot
 
