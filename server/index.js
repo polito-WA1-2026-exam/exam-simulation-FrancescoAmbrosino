@@ -5,7 +5,7 @@ import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 
 import { getUser, getUserById } from './dao-users.js';
-import { getCourses, getStudyPlan, saveStudyPlan, deleteStudyPlan } from './dao-courses.js';
+import { getCourses, getStudyPlan, createStudyPlan, saveStudyPlan, deleteStudyPlan } from './dao-courses.js';
 
 const app = express();
 const port = 3001;
@@ -134,6 +134,28 @@ app.delete('/api/sessions/current', isLoggedIn, (req, res, next) => {
     if (err) return next(err);
     res.status(200).json({});
   });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/studyplan  (protected)
+// Creates a new empty study plan. Fails with 409 if plan already exists.
+// Body: { type }  —  'full-time' or 'part-time'
+// ---------------------------------------------------------------------------
+
+app.post('/api/studyplan', isLoggedIn, (req, res) => {
+  if (req.user.planType)
+    return res.status(409).json({ error: 'Study plan already exists' });
+
+  const { type } = req.body;
+  if (!type || !['full-time', 'part-time'].includes(type))
+    return res.status(422).json({ error: 'Invalid plan type' });
+
+  try {
+    createStudyPlan(req.user.userId, type);
+    res.status(201).json({ type, courses: [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---------------------------------------------------------------------------

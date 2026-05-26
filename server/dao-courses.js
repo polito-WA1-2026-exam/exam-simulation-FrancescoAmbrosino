@@ -31,6 +31,11 @@ export const getStudyPlan = (userId) => {
   `).all(userId);
 };
 
+// Create a new empty study plan (only when no plan exists yet).
+export const createStudyPlan = (userId, type) => {
+  db.prepare('UPDATE users SET planType = ? WHERE userId = ?').run(type, userId);
+};
+
 // Atomically replace study plan: delete old courses, insert new ones, update planType.
 export const saveStudyPlan = db.transaction((userId, planType, courseCodes) => {
   db.prepare('DELETE FROM study_plan_courses WHERE userId = ?').run(userId);
