@@ -10,18 +10,46 @@
 ## API Server
 
 ### Authentication
-- `GET /api/sessions/current` — check session; response: user object or 401
+
+- `POST /api/sessions`
+  - Body: `{ email, password }`
+  - Response: `{ userId, name, surname, email, planType }`
+
+- `GET /api/sessions/current`
+  - Response: `{ userId, name, surname, email, planType }` or 401
+
+- `DELETE /api/sessions/current`
+  - Response: empty
 
 ### Courses
-- `GET /api/courses` — list all courses in alphabetical order; response: array of `{ courseCode, name, credits, maxStudents, enrolledCount, preparatoryCourse, incompatibilities[] }`
+
+- `GET /api/courses`
+  - Response: array of `{ courseCode, name, credits, maxStudents, enrolledCount, preparatoryCourse, incompatibilities[] }`
 
 ### Study Plan
-- `GET /api/studyplan` — get logged-in user's study plan; response: `{ type, courses[] }` or 404 if no plan
+
+- `GET /api/studyplan`
+  - Response: `{ type, courses[] }` or 404 if no plan exists
+
+- `PUT /api/studyplan`
+  - Body: `{ type, courseCodes[] }`
+  - Validates credit range and constraints
+  - Response: `{ type, courses[] }` or 422 with error message
+
+- `DELETE /api/studyplan`
+  - Response: empty
 
 ## Data Models
 
-- `dao-users.mjs`: `getUser(email, password)` — verifies credentials, returns user or false; `getUserById(id)` — re-hydrates user from session
-- `dao-courses.mjs`: `getCourses()` — all courses with enrolledCount and incompatibilities; `getStudyPlan(userId)` — user's plan courses; `saveStudyPlan(userId, planType, courseCodes)` — atomic replace; `deleteStudyPlan(userId)` — delete plan and reset planType
+- `dao-users.js`
+  - `getUser(email, password)`: verifies credentials, returns user object or false
+  - `getUserById(id)`: re-hydrates user from session
+
+- `dao-courses.js`
+  - `getCourses()`: all courses with enrolledCount and incompatibilities array
+  - `getStudyPlan(userId)`: courses in the user's plan
+  - `saveStudyPlan(userId, planType, courseCodes)`: atomic replace of plan
+  - `deleteStudyPlan(userId)`: deletes plan and resets planType to null
 
 ## Database Tables
 
