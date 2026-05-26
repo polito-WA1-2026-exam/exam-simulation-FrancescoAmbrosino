@@ -15,7 +15,7 @@ function getRemoveStatus(courseCode, planCourses) {
 
 function StudyPlan({
   user, savedPlan, localPlan, isEditing, saveError,
-  onCreatePlan, onStartEdit, onSave, onCancel, onDelete, onRemoveCourse,
+  onCreatePlan, onGoToNew, onStartEdit, onSave, onCancel, onDelete, onRemoveCourse,
 }) {
   // Local state for type selector shown when creating a new plan.
   const [newPlanType, setNewPlanType] = useState('full-time');
@@ -25,12 +25,23 @@ function StudyPlan({
   const limits = plan ? CREDIT_LIMITS[plan.type] : null;
   const creditsOk = limits && totalCredits >= limits.min && totalCredits <= limits.max;
 
-  // No plan in DB and not in an editing session: show plan creation form.
+  // No plan in DB and not in an editing session.
   if (!user.planType && !isEditing) {
+    // On '/': onGoToNew provided — just navigate to /studyplan/new.
+    if (onGoToNew) {
+      return (
+        <>
+          <h4>Study Plan</h4>
+          <p className="text-muted">No study plan yet.</p>
+          <Button variant="primary" onClick={onGoToNew}>Create study plan</Button>
+        </>
+      );
+    }
+    // On '/studyplan/new': show type selector form.
     return (
       <>
         <h4>Study Plan</h4>
-        <p className="text-muted">No study plan yet. Choose a type to get started.</p>
+        <p className="text-muted">Choose a type to get started.</p>
         <Form.Select
           className="mb-2"
           value={newPlanType}

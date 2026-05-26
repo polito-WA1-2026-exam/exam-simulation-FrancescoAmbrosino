@@ -12,7 +12,6 @@ function App() {
   const [courses, setCourses]     = useState([]);      // full course list (always loaded)
   const [savedPlan, setSavedPlan] = useState(null);    // plan persisted in DB
   const [localPlan, setLocalPlan] = useState(null);    // working copy during editing
-  const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
   const navigate = useNavigate();
@@ -50,19 +49,19 @@ function App() {
       setUser(null);
       setSavedPlan(null);
       setLocalPlan(null);
-      setIsEditing(false);
       setSaveError(null);
+      navigate('/');
     });
   };
 
-  // POST: creates the plan in DB, then starts editing the empty plan.
+  // POST: creates the plan in DB, then navigates to edit page.
   const handleCreatePlan = (type) => {
     API.createStudyPlan(type)
       .then(result => {
         setUser(u => ({ ...u, planType: result.type }));
-        setSavedPlan(result);           // { type, courses: [] } now in DB
+        setSavedPlan(result);
         setLocalPlan({ type, courses: [] });
-        setIsEditing(true);
+        navigate('/studyplan/edit');
       })
       .catch(err => console.error('Failed to create plan:', err));
   };
@@ -70,8 +69,8 @@ function App() {
   // User clicks "Edit" on an existing saved plan.
   const handleStartEdit = () => {
     setLocalPlan({ ...savedPlan, courses: [...savedPlan.courses] });
-    setIsEditing(true);
     setSaveError(null);
+    navigate('/studyplan/edit');
   };
 
   const handleAddCourse = (course) => {
@@ -93,17 +92,17 @@ function App() {
         setSavedPlan(result);
         setUser(u => ({ ...u, planType: result.type }));
         setLocalPlan(null);
-        setIsEditing(false);
         API.getCourses().then(setCourses); // refresh enrolledCount
+        navigate('/');
       })
       .catch(err => setSaveError(err.error || 'Save failed'));
   };
 
-  // Discard local changes; go back to showing saved plan (or create form if none).
+  // Discard local changes; go back to home.
   const handleCancel = () => {
     setLocalPlan(null);
-    setIsEditing(false);
     setSaveError(null);
+    navigate('/');
   };
 
   // DELETE: plan in DB → API call. Plan only local (never saved) → just reset state.
@@ -112,22 +111,17 @@ function App() {
       API.deleteStudyPlan().then(() => {
         setSavedPlan(null);
         setLocalPlan(null);
-        setIsEditing(false);
         setSaveError(null);
         setUser(u => ({ ...u, planType: null }));
         API.getCourses().then(setCourses); // refresh enrolledCount
+        navigate('/');
       });
     } else {
       setLocalPlan(null);
-      setIsEditing(false);
       setSaveError(null);
+      navigate('/');
     }
   };
-
-  // Courses to check constraints against in CourseList.
-  const activePlanCourses = isEditing
-    ? (localPlan?.courses ?? [])
-    : (savedPlan?.courses ?? []);
 
   return (
     <>
@@ -138,13 +132,108 @@ function App() {
           <Route path="/login" element={
             user ? <Navigate to="/" /> : <LoginForm onLogin={handleLogin} />
           } />
+
+          {/* View existing plan: read-only, with Edit button */}
+          <Route path="/studyplan" element={
+            !user         ? <Navigate to="/login" />        :
+            !user.planType ? <Navigate to="/studyplan/new" /> :
+            <Row className="g-4">
+              <Col md={7}>
+                <CourseList
+                  courses={courses}
+                  planCourses={savedPlan?.courses ?? []}
+                  isEditing={false}
+                  onAdd={handleAddCourse}
+                />
+              </Col>
+              <Col md={5}>
+                <StudyPlan
+                  user={user}
+                  savedPlan={savedPlan}
+                  localPlan={null}
+                  isEditing={false}
+                  saveError={null}
+                  onCreatePlan={handleCreatePlan}
+                  onStartEdit={handleStartEdit}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                  onDelete={handleDelete}
+                  onRemoveCourse={handleRemoveCourse}
+                />
+              </Col>
+            </Row>
+          } />
+
+          {/* Create new plan: type selector → POST → redirect to /studyplan/edit */}
+          <Route path="/studyplan/new" element={
+            !user          ? <Navigate to="/login" /> :
+            user.planType  ? <Navigate to="/" />      :
+            <Row className="g-4">
+              <Col md={7}>
+                <CourseList
+                  courses={courses}
+                  planCourses={[]}
+                  isEditing={false}
+                  onAdd={handleAddCourse}
+                />
+              </Col>
+              <Col md={5}>
+                <StudyPlan
+                  user={user}
+                  savedPlan={null}
+                  localPlan={null}
+                  isEditing={false}
+                  saveError={null}
+                  onCreatePlan={handleCreatePlan}
+                  onStartEdit={handleStartEdit}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                  onDelete={handleDelete}
+                  onRemoveCourse={handleRemoveCourse}
+                />
+              </Col>
+            </Row>
+          } />
+
+          {/* Edit existing plan: add/remove courses, save/cancel/delete */}
+          <Route path="/studyplan/edit" element={
+            !user       ? <Navigate to="/login" /> :
+            !localPlan  ? <Navigate to="/" />      :
+            <Row className="g-4">
+              <Col md={7}>
+                <CourseList
+                  courses={courses}
+                  planCourses={localPlan.courses}
+                  isEditing={true}
+                  onAdd={handleAddCourse}
+                />
+              </Col>
+              <Col md={5}>
+                <StudyPlan
+                  user={user}
+                  savedPlan={savedPlan}
+                  localPlan={localPlan}
+                  isEditing={true}
+                  saveError={saveError}
+                  onCreatePlan={handleCreatePlan}
+                  onStartEdit={handleStartEdit}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                  onDelete={handleDelete}
+                  onRemoveCourse={handleRemoveCourse}
+                />
+              </Col>
+            </Row>
+          } />
+
+          {/* Home: full course list + read-only study plan panel (when logged in) */}
           <Route path="/" element={
             <Row className="g-4">
               <Col md={user ? 7 : 12}>
                 <CourseList
                   courses={courses}
-                  planCourses={activePlanCourses}
-                  isEditing={isEditing}
+                  planCourses={savedPlan?.courses ?? []}
+                  isEditing={false}
                   onAdd={handleAddCourse}
                 />
               </Col>
@@ -153,9 +242,10 @@ function App() {
                   <StudyPlan
                     user={user}
                     savedPlan={savedPlan}
-                    localPlan={localPlan}
-                    isEditing={isEditing}
-                    saveError={saveError}
+                    localPlan={null}
+                    isEditing={false}
+                    saveError={null}
+                    onGoToNew={() => navigate('/studyplan/new')}
                     onCreatePlan={handleCreatePlan}
                     onStartEdit={handleStartEdit}
                     onSave={handleSave}
@@ -167,6 +257,8 @@ function App() {
               )}
             </Row>
           } />
+
+          <Route path="*" element={<p className="mt-4 text-center text-muted">Page not found.</p>} />
         </Routes>
       </Container>
     </>

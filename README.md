@@ -27,9 +27,34 @@ App available at `http://localhost:5173`. Server runs on `http://localhost:3001`
 
 ## React Client Application Routes
 
-- Route `/`: page content and purpose
-- Route `/something/:param`: page content and purpose, param specification
-- ...
+- Route `/`: main page
+  - Always shows the full course list (`CourseList`)
+  - If logged in: also shows the study plan panel (`StudyPlan`) alongside the course list
+  - If not logged in: course list occupies full width, no study plan panel
+
+- Route `/login`: login page
+  - Shows `LoginForm` with email and password fields
+  - Redirects to `/` if user is already authenticated
+
+- Route `/studyplan`: view the existing study plan (read-only)
+  - Requires login (redirects to `/login` if not authenticated)
+  - Redirects to `/studyplan/new` if no plan exists
+  - Shows full course list and study plan with an Edit button
+
+- Route `/studyplan/new`: create a new study plan
+  - Requires login (redirects to `/login` if not authenticated)
+  - Redirects to `/` if user already has a plan
+  - Shows type selector (full-time / part-time) and "Create Plan" button
+  - On creation, navigates to `/studyplan/edit`
+
+- Route `/studyplan/edit`: edit the current study plan
+  - Requires login (redirects to `/login` if not authenticated)
+  - Redirects to `/` if no local plan is active
+  - Shows course list in edit mode and study plan with add/remove controls
+  - Save, Cancel, and Delete navigate back to `/`
+
+- Route `*`: catch-all for unknown URLs
+  - Shows a "Page not found" message
 
 ## API Server
 
