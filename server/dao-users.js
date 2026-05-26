@@ -1,4 +1,4 @@
-import db from './db.mjs';
+import db from './db.js';
 import crypto from 'crypto';
 
 // Used by Passport LocalStrategy to verify credentials at login.

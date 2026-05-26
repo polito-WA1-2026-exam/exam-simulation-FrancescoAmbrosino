@@ -1,6 +1,6 @@
 /**
  * Database initialization script.
- * Run once with: node init_db.mjs
+ * Run once with: node init_db.js
  * WARNING: drops and recreates all tables — destroys existing data.
  */
 

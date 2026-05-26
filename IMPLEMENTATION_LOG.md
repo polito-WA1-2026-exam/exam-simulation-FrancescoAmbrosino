@@ -312,9 +312,11 @@ _(verrà documentato nel passo successivo)_
 
 ---
 
-## Regola fondamentale
+## Regole fondamentali
 
-**Implementare SOLO quello che la traccia richiede esplicitamente.** Nessuna feature extra, nessuna astrazione non richiesta, nessun "miglioramento" non specificato. Se la traccia non lo dice, non si fa. L'esame valuta correttezza e aderenza ai requisiti, non creatività.
+**1. Implementare SOLO quello che la traccia richiede esplicitamente.** Nessuna feature extra, nessuna astrazione non richiesta, nessun "miglioramento" non specificato. Se la traccia non lo dice, non si fa. L'esame valuta correttezza e aderenza ai requisiti, non creatività.
+
+**2. Usare esclusivamente estensione `.js`.** Con `"type": "module"` in `package.json`, i file `.js` sono già trattati come ESM — `.mjs` non serve. Tutti i file server usano `.js`, tutti gli import usano `'./nome.js'`. Il comando di avvio è `nodemon index.js`.
 
 ---
 

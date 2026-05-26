@@ -1,4 +1,4 @@
-import db from './db.mjs';
+import db from './db.js';
 
 const getIncompat = db.prepare(
   'SELECT courseCode2 FROM incompatibilities WHERE courseCode1 = ?'

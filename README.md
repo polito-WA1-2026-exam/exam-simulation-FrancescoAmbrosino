@@ -10,8 +10,6 @@
 ## API Server
 
 ### Authentication
-- `POST /api/sessions` — login; body: `{ email, password }`; response: user object `{ userId, name, surname, email, planType }`
-- `DELETE /api/sessions/current` — logout; no body; response: empty
 - `GET /api/sessions/current` — check session; response: user object or 401
 
 ### Courses
@@ -19,8 +17,6 @@
 
 ### Study Plan
 - `GET /api/studyplan` — get logged-in user's study plan; response: `{ type, courses[] }` or 404 if no plan
-- `PUT /api/studyplan` — create or replace study plan; body: `{ type, courseCodes[] }`; validates credits and constraints; response: updated plan or 422 with error
-- `DELETE /api/studyplan` — delete entire study plan; response: empty
 
 ## Data Models
 
