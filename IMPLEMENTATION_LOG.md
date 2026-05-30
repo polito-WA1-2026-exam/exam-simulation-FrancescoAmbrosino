@@ -12,7 +12,8 @@ Serve da riferimento per l'esame reale: leggilo prima di iniziare a scrivere cod
 3. **Server: GET routes + middleware base** ✓
 4. **Server: POST/DELETE sessioni + PUT/DELETE study plan** ✓
 5. **Client: componenti React** ✓
-6. **README: routes + credenziali + cleanup**
+6. **Routes React** ✓
+7. **README: credenziali + screenshot + cleanup pre-consegna**
 
 ---
 
@@ -495,9 +496,56 @@ client/src/
     StudyPlan.jsx
 ```
 
-## Step 6 — Routes React nel README (TODO)
+## Step 6 — Routes React
 
-_(verrà documentato nel passo successivo)_
+### Decisione: routing-based invece di stato `isEditing`
+
+App.jsx inizialmente usava uno stato `isEditing` per alternare tra visualizzazione e modifica del piano nella stessa pagina `/`. Refactor: ogni fase ha la sua route. Più chiaro, URL navigabili, separazione netta delle responsabilità.
+
+**Rimosso `isEditing` dallo stato.** La fase è ora determinata dalla route corrente, non da un boolean. Resta `localPlan` (copia di lavoro) come segnale: se presente, c'è una sessione di editing attiva.
+
+### Route definite
+
+| Route | Auth | Guardia redirect | Contenuto |
+|---|---|---|---|
+| `/` | pubblica | — | lista corsi; se loggato, anche pannello piano read-only |
+| `/login` | — | loggato → `/` | LoginForm |
+| `/studyplan` | richiesta | no login → `/login`; no piano → `/studyplan/new` | piano read-only + bottone Edit |
+| `/studyplan/new` | richiesta | no login → `/login`; piano esiste → `/` | type selector → POST → `/studyplan/edit` |
+| `/studyplan/edit` | richiesta | no login → `/login`; no `localPlan` → `/` | lista in edit mode + add/remove/save/cancel/delete |
+| `*` | pubblica | — | "Page not found" |
+
+**Perché route separate per `new` ed `edit`?**
+`new` mostra il selettore di tipo e crea il piano (POST). `edit` opera su un `localPlan` già esistente. Stati e UI diversi → route diverse. POST in `new` poi `navigate('/studyplan/edit')`.
+
+**Guardie come redirect inline nel JSX della route:**
+```jsx
+<Route path="/studyplan/edit" element={
+  !user       ? <Navigate to="/login" /> :
+  !localPlan  ? <Navigate to="/" />      :
+  <Row>...</Row>
+} />
+```
+Catena ternaria: prima auth, poi precondizione stato, poi contenuto. Evita pagine in stato incoerente se l'utente arriva via URL diretto.
+
+**Tutti gli handler navigano esplicitamente:**
+- `handleCreatePlan` → POST → `navigate('/studyplan/edit')`
+- `handleStartEdit` → copia `savedPlan` in `localPlan` → `navigate('/studyplan/edit')`
+- `handleSave` / `handleCancel` / `handleDelete` / `handleLogout` → `navigate('/')`
+
+Coerente con la traccia: "After each of these actions, the application will be in the logged-in home page."
+
+### StudyPlan.jsx — prop `onGoToNew`
+
+Quando non c'è piano, il componente ha due rese diverse a seconda della route:
+- su `/` (prop `onGoToNew` passata): bottone semplice "Create study plan" → `navigate('/studyplan/new')`
+- su `/studyplan/new` (no `onGoToNew`): selettore tipo + "Create Plan" → `onCreatePlan`
+
+Discrimine: presenza della prop `onGoToNew`. Stesso componente, due contesti.
+
+### Nota traccia
+
+La traccia dichiara che il comportamento di URL inseriti manualmente (eccetto `/`) è *undefined* e non testato. Le route extra (`/studyplan`, `/studyplan/new`, `/studyplan/edit`) e le guardie redirect non sono richieste, ma migliorano organizzazione e robustezza (criterio di qualità: "Organization of React components and routes").
 
 ---
 
