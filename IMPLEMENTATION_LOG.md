@@ -557,6 +557,15 @@ La traccia dichiara che il comportamento di URL inseriti manualmente (eccetto `/
 
 **3. Usare react-bootstrap per i componenti UI.** Importare i componenti da `'react-bootstrap'` (Button, Form, Table, ecc.) e il CSS da `'bootstrap/dist/css/bootstrap.min.css'` in `main.jsx`. Il CSS di Bootstrap è necessario: react-bootstrap non lo include autonomamente.
 
+**4. Priorità all'usabilità, grafica basic.** Quello che conta è che l'app sia usabile senza mal di testa: feedback chiari (perché un corso non si può aggiungere/rimuovere, errori in-place, contatore crediti sempre visibile), flussi prevedibili, niente stati incoerenti. La parte grafica può restare essenziale — componenti react-bootstrap di default, nessun CSS custom elaborato. Non perdere tempo a curare l'estetica oltre il decente. Criterio di qualità della traccia: "Basic usability and user-friendliness".
+
+**5. Codice ben commentato, commenti in italiano.** Ogni file e ogni blocco logico non banale va commentato. Linee guida:
+- **Lingua**: commenti in italiano, usando i termini tecnici inglesi propri del linguaggio (es. "il `middleware` legge la `session`", "la `query` fa una `LEFT JOIN`"). Non tradurre i termini tecnici.
+- **Scelte architetturali / di codice**: dove si prende una decisione non ovvia, aggiungere il perché — es. `// Qui si è scelto di fare così perché...`. Aiuta a ricostruire il ragionamento all'esame reale.
+- **Constraint e condizioni**: dove utile, spiegare le conseguenze di una modifica — es. `// Se qui cambiassi questo constraint da X a Y, succederebbe che...`. Rende il codice un riferimento di studio, non solo funzionante.
+- **No commenti ovvi su codice semplice**: non commentare ciò che il codice già dice in modo banale (`// incrementa i` su `i++`). Lì commentare il *perché*, non il *cosa*.
+- **Sì commenti su costrutti JS specifici e non banali**: `Promise`/`async-await`, `hooks` React (`useState`, `useEffect`, `useNavigate`...), `closure`, `spread`/destructuring complessi, `Set`/`Map`, `db.transaction`, callback di Passport, ecc. vanno spiegati anche nel *cosa* fanno e *come*. Servono da ripasso all'esame — qui il commento ha valore didattico, non è ridondante.
+
 ---
 
 ## Note generali sull'architettura
